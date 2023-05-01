@@ -27,17 +27,20 @@ call mostrar_suma(1, 2);
 
 
 -- 2. Codificar un procedimiento que reciba una cadena de texto y la visualice al revés.
-CREATE OR REPLACE PROCEDURE texto_al_reves(texto text)
+CREATE OR REPLACE PROCEDURE texto_al_reves(cadena text)
     LANGUAGE plpgsql AS $$
 DECLARE
-    texto_reves TEXT := '';
+    longitud integer := length(cadena);
+    cadena_invertida text := '';
 BEGIN
-    texto_al_reves := REVERSE(texto);
-    RAISE NOTICE 'El texto % al reves es %', texto, texto_reves;
-END
+    FOR i IN REVERSE longitud..1 LOOP
+        cadena_invertida := cadena_invertida || substring(cadena FROM i FOR 1);
+    END LOOP;
+    RAISE NOTICE 'La cadena invertida es %', cadena_invertida;
+END;
 $$;
 
-call texto_al_reves('hola');
+CALL texto_al_reves('Hola mundo');
 
 -- 3. Escribir una función que reciba una fecha y devuelva el año de la fecha (como número).
 CREATE OR REPLACE FUNCTION obtener_anio(fecha DATE)
