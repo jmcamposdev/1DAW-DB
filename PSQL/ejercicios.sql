@@ -72,18 +72,23 @@ SELECT obtener_anio('2020-01-01');
 -- Correctas : 2, 4, 7
 
 -- 5. Codificar un procedimiento que reciba una lista de hasta 5 números y visualice su suma.
-CREATE OR REPLACE PROCEDURE sumar_numeros_variadicos(VARIADIC numeros INTEGER[5])
-    LANGUAGE plpgsql AS $$
+CREATE OR REPLACE PROCEDURE sumar_numeros(numeros INTEGER[])
+AS $$
 DECLARE
-    suma INTEGER;
+    suma INTEGER := 0;
 BEGIN
-    suma := 0;
+    IF array_length(numeros, 1) > 5 THEN
+        RAISE EXCEPTION 'El arreglo no puede tener más de 5 elementos';
+    END IF;
+
     FOR i IN 1..array_length(numeros, 1) LOOP
-        suma := suma + numeros[i];
-    END LOOP;
-    RAISE NOTICE 'La suma de los numeros es %', suma;
+            suma := suma + numeros[i];
+        END LOOP;
+    RAISE NOTICE 'La suma de los números es: %', suma;
 END;
-$$;
+$$ LANGUAGE plpgsql;
+
+CALL sumar_numeros(ARRAY[1, 2, 3, 4, 5]);
 
 -- 6. Realizar los siguientes procedimientos y funciones sobre la base de datos jardineria:
 
