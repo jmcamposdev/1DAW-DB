@@ -72,7 +72,7 @@ SELECT obtener_anio('2020-01-01');
 -- Correctas : 2, 4, 7
 
 -- 5. Codificar un procedimiento que reciba una lista de hasta 5 números y visualice su suma.
-CREATE OR REPLACE PROCEDURE sumar_numeros(numeros INTEGER[])
+CREATE OR REPLACE PROCEDURE sumar_numeros(numeros INTEGER[5])
 AS $$
 DECLARE
     suma INTEGER := 0;
