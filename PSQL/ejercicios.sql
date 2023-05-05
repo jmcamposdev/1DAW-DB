@@ -184,13 +184,16 @@ CALL modificarLocalidadOficina('BOS-USA', 'Madrid');
 -- y suba el salario a todos los empleados del departamento indicado en la llamada.
 -- La subida será el porcentaje o el importe indicado en la llamada (el que sea más beneficioso para el empleado en cada caso empleado).
 
-CREATE OR REPLACE PROCEDURE subida_salario (p_depno INTEGER, p_importe MONEY, p_porcentaje INTEGER)
+CREATE OR REPLACE PROCEDURE subida_salario (codigo_departamento INTEGER, importe MONEY, porcentaje INTEGER)
 AS $$
 BEGIN
     UPDATE employees
-    SET salary = salary + GREATEST(p_importe, salary * p_porcentaje / 100)
-    WHERE department_id = p_depno;
+    SET salary = salary + GREATEST(importe, (salary * (porcentaje / 100.0)))::MONEY
+    WHERE department_id = codigo_departamento::INTEGER;
+
 END$$ LANGUAGE plpgsql;
+
+CALL subida_salario(1, 100::money, 10);
 
 -- 11. Queremos que no se puedan eliminar físicamente los pedidos, en vez de eliminarlo, se marcará como baja.
 -- Para ello debemos añadir a la tabla de pedidos un campo baja que contendrá un valor lógico TRUE o FALSE (no podrá contener ningún otro valor).
