@@ -189,7 +189,7 @@ AS $$
 BEGIN
     UPDATE employees
     SET salary = salary + GREATEST(importe, (salary * (porcentaje / 100.0)))::MONEY
-    WHERE department_id = codigo_departamento::INTEGER;
+    WHERE department_id = codigo_departamento;
 
 END$$ LANGUAGE plpgsql;
 
