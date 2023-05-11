@@ -195,7 +195,48 @@ END$$ LANGUAGE plpgsql;
 
 CALL subida_salario(1, 100::money, 10);
 
--- 11. Queremos que no se puedan eliminar físicamente los pedidos, en vez de eliminarlo, se marcará como baja.
+
+-- 11. Cambiar la solución del ejercicio anterior para permitir la eliminación físicamente del registro
+-- de la tabla empleados pero guardar una copia del registro eliminado en una tabla llamada ex_empleados,
+-- guardando también en esa tabla la fecha de la baja.
+
+-- Creamos la tabla ex_empleados con los mismos campos que la tabla empleado
+CREATE TABLE ex_empleados (
+                              id serial NOT NULL,
+                              codigo_empleado INTEGER NOT NULL,
+                              nombre VARCHAR(50) NOT NULL,
+                              apellido1 VARCHAR(50) NOT NULL,
+                              apellido2 VARCHAR(50) DEFAULT NULL,
+                              extension VARCHAR(10) NOT NULL,
+                              email VARCHAR(100) NOT NULL,
+                              codigo_oficina VARCHAR(10) NOT NULL,
+                              codigo_jefe INTEGER DEFAULT NULL,
+                              puesto VARCHAR(50) DEFAULT NULL,
+                              PRIMARY KEY (id)
+);
+
+-- Creamos la función que se ejecutará antes de eliminar un registro de la tabla empleado
+CREATE OR REPLACE FUNCTION baja_empleado()
+    RETURNS TRIGGER AS $$
+BEGIN
+    INSERT INTO ex_empleados (codigo_empleado, nombre, apellido1, apellido2, extension, email, codigo_oficina, codigo_jefe, puesto) VALUES
+        (OLD.codigo_empleado, OLD.nombre, OLD.apellido1, OLD.apellido2, OLD.extension, OLD.email, OLD.codigo_oficina, OLD.codigo_jefe, OLD.puesto);
+    RETURN OLD;
+END$$ LANGUAGE plpgsql;
+
+-- Creamos el trigger que ejecutará la función anterior
+CREATE TRIGGER tr_baja_empleado
+    BEFORE DELETE ON empleado
+    FOR EACH ROW
+EXECUTE PROCEDURE baja_empleado();
+
+-- PROBAMOS EL TRIGGER
+DELETE FROM empleado WHERE codigo_empleado = 33;
+SELECT * FROM empleado;
+SELECT * FROM ex_empleados;
+
+
+-- 12. Queremos que no se puedan eliminar físicamente los pedidos, en vez de eliminarlo, se marcará como baja.
 -- Para ello debemos añadir a la tabla de pedidos un campo baja que contendrá un valor lógico TRUE o FALSE (no podrá contener ningún otro valor).
 -- Por defecto estará puesto a FALSE (no se ha borrado) y cuando se intente borrar el pedido,
 -- en vez de borrar el pedido se cambiará el valor de este campo.
@@ -223,45 +264,6 @@ EXECUTE FUNCTION eliminar_pedido();
 DELETE FROM pedido WHERE codigo_pedido = 2;
 SELECT * FROM pedido;
 
-
--- 12. Cambiar la solución del ejercicio anterior para permitir la eliminación físicamente del registro
--- de la tabla empleados pero guardar una copia del registro eliminado en una tabla llamada ex_empleados,
--- guardando también en esa tabla la fecha de la baja.
-
--- Creamos la tabla ex_empleados con los mismos campos que la tabla empleado
-CREATE TABLE ex_empleados (
-    id serial NOT NULL,
-    codigo_empleado INTEGER NOT NULL,
-    nombre VARCHAR(50) NOT NULL,
-    apellido1 VARCHAR(50) NOT NULL,
-    apellido2 VARCHAR(50) DEFAULT NULL,
-    extension VARCHAR(10) NOT NULL,
-    email VARCHAR(100) NOT NULL,
-    codigo_oficina VARCHAR(10) NOT NULL,
-    codigo_jefe INTEGER DEFAULT NULL,
-    puesto VARCHAR(50) DEFAULT NULL,
-    PRIMARY KEY (id)
-);
-
--- Creamos la función que se ejecutará antes de eliminar un registro de la tabla empleado
-CREATE OR REPLACE FUNCTION baja_empleado()
-RETURNS TRIGGER AS $$
-BEGIN
-    INSERT INTO ex_empleados (codigo_empleado, nombre, apellido1, apellido2, extension, email, codigo_oficina, codigo_jefe, puesto) VALUES
-    (OLD.codigo_empleado, OLD.nombre, OLD.apellido1, OLD.apellido2, OLD.extension, OLD.email, OLD.codigo_oficina, OLD.codigo_jefe, OLD.puesto);
-    RETURN OLD;
-END$$ LANGUAGE plpgsql;
-
--- Creamos el trigger que ejecutará la función anterior
-CREATE TRIGGER tr_baja_empleado
-BEFORE DELETE ON empleado
-FOR EACH ROW
-EXECUTE PROCEDURE baja_empleado();
-
--- PROBAMOS EL TRIGGER
-DELETE FROM empleado WHERE codigo_empleado = 33;
-SELECT * FROM empleado;
-SELECT * FROM ex_empleados;
 
 
 
