@@ -195,6 +195,36 @@ END$$ LANGUAGE plpgsql;
 
 CALL subida_salario(1, 100::money, 10);
 
+-- 9. En la misma base de datos del ejercicio anterior, escribir un procedimiento que suba el sueldo de todos los empleados
+-- que ganen menos que el salario medio de su departamento. La subida será del 50% de la diferencia entre el salario del
+-- empleado y la media de su departamento. Se deberá asegurar que la transacción no se quede a medias, y se gestionarán los posibles errores.
+CREATE OR REPLACE PROCEDURE igualarSalario() AS
+$$ DECLARE
+    depAvgSal RECORD;
+    employeeData RECORD;
+    subida DECIMAL;
+BEGIN
+    FOR depAvgSal IN SELECT department_id, avg(salary::decimal) AS avg FROM employees GROUP BY department_id
+        LOOP
+            RAISE NOTICE 'ID department: %', depAvgSal.department_id;
+            RAISE NOTICE 'ID avg: %', depAvgSal.avg;
+            FOR employeeData IN SELECT employee_id, salary::decimal FROM employees WHERE department_id = depAvgSal.department_id
+                LOOP
+                    RAISE NOTICE 'ID employee: %', employeeData.employee_id;
+                    RAISE NOTICE 'Salary: %', employeeData.salary;
+                    IF employeeData.salary < depAvgSal.avg THEN
+                        subida = 0.5 * (depAvgSal.avg - employeeData.salary);
+                        RAISE NOTICE 'Subida prevista: %', subida;
+                    END IF;
+                    UPDATE employees SET salary = salary + subida::money WHERE employee_id = employeeData.employee_id;
+                END LOOP;
+        END LOOP;
+END $$ LANGUAGE plpgsql;
+
+CALL igualarSalario();
+
+SELECT * FROM employees;
+
 
 -- 11. Cambiar la solución del ejercicio anterior para permitir la eliminación físicamente del registro
 -- de la tabla empleados pero guardar una copia del registro eliminado en una tabla llamada ex_empleados,
