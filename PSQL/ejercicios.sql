@@ -225,6 +225,41 @@ CALL igualarSalario();
 
 SELECT * FROM employees;
 
+-- 10 Escribir un disparador en la base de datos de los ejercicios anteriores que haga fallar
+-- cualquier operación de modificación del apellido o del número de un empleado,
+-- o que suponga una subida de sueldo superior al 10%.
+-- Se realiza en Company
+
+CREATE OR REPLACE FUNCTION validate_update_employee()
+    RETURNS TRIGGER
+AS $$
+DECLARE
+    isValid BOOLEAN;
+    errorMessage TEXT;
+BEGIN
+    IF (NEW.last_name <> OLD.last_name) THEN
+        isValid := FALSE;
+        errorMessage := 'No se puede modificar el apellido';
+    ELSIF NEW.employee_id <> OLD.employee_id THEN
+        isValid := FALSE;
+        errorMessage := 'No se puede modificar el numero';
+    ELSIF NEW.salary >= OLD.salary  * 1.1 THEN
+        isValid := FALSE;
+        errorMessage := 'No se puede subir el sueldo mas de un 10%';
+    ELSEIF NEW.salary  < OLD.salary THEN
+        isValid := FALSE;
+        errorMessage := 'No se puede bajar el sueldo';
+    ELSE
+        isValid := TRUE;
+    END IF;
+
+    IF NOT isValid THEN
+        RAISE EXCEPTION '%', errorMessage;
+    END IF;
+
+    RETURN NEW;
+END$$ LANGUAGE plpgsql;
+
 
 -- 11. Cambiar la solución del ejercicio anterior para permitir la eliminación físicamente del registro
 -- de la tabla empleados pero guardar una copia del registro eliminado en una tabla llamada ex_empleados,
@@ -293,6 +328,95 @@ EXECUTE FUNCTION eliminar_pedido();
 -- Comprobamos que no se puede eliminar físicamente un pedido
 DELETE FROM pedido WHERE codigo_pedido = 2;
 SELECT * FROM pedido;
+
+--13. Queremos que se guarde en una tabla altas_empleados
+-- el historial de inserciones de registros realizadas en la tabla empleados,
+-- además de los datos del empleado se deberá guardar en la tabla el usuario
+-- que realizó la inserción del empleado y la fecha/hora de la operación.
+-- La primera vez que se ejecute el disparador deberá crear la tabla si no existe
+-- y rellenarla con los empleados que contenga la base de datos en ese momento.
+-- Se realiza en Jardinería
+
+CREATE OR REPLACE FUNCTION insertar_empleado()
+    RETURNS TRIGGER AS $$
+DECLARE
+    c_empleado CURSOR  IS
+        SELECT * FROM empleado;
+    usuario VARCHAR(50);
+BEGIN
+    -- Si no existe la tabla altas_empleados la creamos y la rellenamos con los empleados que hay en la tabla empleado
+    IF NOT EXISTS (SELECT * FROM information_schema.tables WHERE table_name = 'altas_empleados') THEN
+        CREATE TABLE IF NOT EXISTS altas_empleados(
+                                                      id serial,
+                                                      codigo_empleado integer,
+                                                      nombre VARCHAR(50),
+                                                      apellido1 VARCHAR(50),
+                                                      apellido2 VARCHAR(50),
+                                                      extension VARCHAR(10),
+                                                      email VARCHAR(100),
+                                                      codigo_oficina varchar(10),
+                                                      codigo_jefe integer,
+                                                      puesto VARCHAR(50),
+                                                      usuario VARCHAR(50),
+                                                      fecha_hora timestamp,
+                                                      PRIMARY KEY (id)
+        );
+        FOR empleado IN c_empleado LOOP
+                INSERT INTO altas_empleados
+                VALUES (DEFAULT, empleado.codigo_empleado, empleado.nombre, empleado.apellido1, empleado.apellido2, empleado.extension, empleado.email, empleado.codigo_oficina, empleado.codigo_jefe, empleado.puesto, 'admin', now());
+            END LOOP;
+    ELSE -- Si existe la tabla altas_empleados
+        usuario := current_user; -- Obtenemos el usuario que ha realizado la inserción
+        -- Insertamos el nuevo empleado en la tabla de altas_empleados
+        INSERT INTO altas_empleados
+        VALUES (DEFAULT, NEW.codigo_empleado, NEW.nombre, NEW.apellido1, NEW.apellido2, NEW.extension, NEW.email, NEW.codigo_oficina, NEW.codigo_jefe, NEW.puesto, usuario, now());
+    END IF;
+    RETURN NEW;
+END$$LANGUAGE plpgsql;
+
+CREATE TRIGGER insertar_empleado_trigger
+    AFTER INSERT ON empleado
+    FOR EACH ROW EXECUTE PROCEDURE insertar_empleado();
+
+INSERT INTO empleado VALUES (101, 'Paco', 'Garcia', 'Garcia', '1234', 'garcia@gmail.com', 'TAL-ES', 1, 'Represenante de ventas');
+SELECT * FROM altas_empleados; -- Comprobamos que se ha insertado el nuevo empleado
+
+
+
+-- 14. Hacer que se actualicen automáticamente las existencias de los productos
+-- cuando se inserte un nuevo pedido o cuando se rectifique la cantidad de uno existente.
+-- Se supone que un pedido produce una reducción del stock (existencias) del producto.
+-- Se realiza en Jardinería
+
+CREATE OR REPLACE FUNCTION actualizar_stock() RETURNS trigger AS $$
+BEGIN
+    IF (TG_OP = 'INSERT') THEN -- Si se inserta un nuevo pedido
+    -- Se actualiza el stock restando la cantidad del pedido
+        UPDATE producto SET cantidad_en_stock = cantidad_en_stock - NEW.cantidad
+        WHERE producto.codigo_producto = NEW.codigo_producto;
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN -- Si se actualiza un pedido
+    -- Se actualiza el stock restando la cantidad nueva menos la cantidad antigua
+        UPDATE producto SET cantidad_en_stock = cantidad_en_stock - (NEW.cantidad - OLD.cantidad)
+        WHERE producto.codigo_producto = NEW.codigo_producto;
+        RETURN NEW;
+    END IF;
+END$$ LANGUAGE plpgsql;
+
+-- Creamos el disparador después de la creación de la tabla
+CREATE TRIGGER actualizar_stock_trigger
+    AFTER INSERT OR UPDATE ON detalle_pedido
+    FOR EACH ROW EXECUTE PROCEDURE actualizar_stock();
+
+
+SELECT * FROM producto WHERE codigo_producto = 'FR-31'; -- Posee 400 en stock
+INSERT INTO detalle_pedido VALUES (2, 'FR-31', 1, 8, 1); -- Se inserta un pedido de 1 unidad
+SELECT * FROM producto WHERE codigo_producto = 'FR-31'; -- Posee 399 en stock
+UPDATE detalle_pedido SET cantidad = 10 WHERE codigo_pedido = 2 AND codigo_producto = 'FR-31'; -- Se actualiza el pedido a 2 unidades
+SELECT * FROM producto WHERE codigo_producto = 'FR-31'; -- Posee 398 en stock
+UPDATE detalle_pedido SET cantidad = 5 WHERE codigo_pedido = 1 AND codigo_producto = 'FR-31'; -- Se actualiza el pedido a 1 unidad
+SELECT * FROM producto WHERE codigo_producto = 'FR-31'; -- Posee 399 en stock
+
 
 
 
